@@ -8,3 +8,6 @@ Claude Code に入れるプラグインの配布用ファイルです。Claude C
 ```
 
 前提: Claude Code 2.1.275 以降、Python 3.8 以降。
+
+## Web の画面
+https://dronekoh.github.io/my-ai-assistant/app/ （パソコンの Claude Code に入れたプラグインと、ペアリングしてから使う）
