@@ -60,24 +60,29 @@ export async function staticChannel(myEcdhPriv, peerEcdhPub, browserEcdh, pcEcdh
   return 'd-' + hex(await hkdf(shared, salt, 'chan')).slice(0, 32);
 }
 
-// ---- ペアリング用の部品 ----
-export function newCode() { // 8 桁の使い捨て番号
-  const u = new Uint32Array(1);
-  for (;;) { crypto.getRandomValues(u); if (u[0] < 4294967200) return String(u[0] % 100000000).padStart(8, '0'); }
+// ---- ペアリング用の部品（W5: 先に約束させる手順） ----
+// 手順: (1) ブラウザが commit = SHA-256(B の鍵・名前・乱数 nb) だけを送る (2) パソコンが自分の鍵 P と乱数 np を返す
+//       (3) ブラウザが B・名前・nb を明かし、パソコンが commit と照らし合わせる (4) 6桁は SHA-256(B・P・nb・np) から作る。
+// 中継が B を見られるのは (2) のあとなので、見てから偽の鍵を作り直して6桁をそろえることはできない（そろう確率は約100万分の1。外れたら番号は捨てられる）。
+// 番号 = パソコンが作る乱数の「通り道の名前」そのもの（12桁）。番号から鍵や名前を計算しない。番号は秘密ではない（中継にも見える）。
+const PAIR_DIGITS = 12;
+export const PAIR_ID_RE = /^\d{12}$/;
+export function newPairId() { // 12 桁の使い捨て番号（桁ごとに偏りなく選ぶ）
+  const u = new Uint32Array(1); let s = '';
+  while (s.length < PAIR_DIGITS) { crypto.getRandomValues(u); if (u[0] < 4294967290) s += String(u[0] % 10); }
+  return s;
 }
-export const pairChannelName = async (code) => 'pair-' + hex(await sha256('pair-v1|' + code)).slice(0, 32);
-async function macKey(code) {
-  const raw = await hkdf(enc(code), enc('pair-v1'), 'mac');
-  return subtle.importKey('raw', raw, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
+// 入力欄から: 全角・ハイフン・空白を除いて数字だけにする（12桁でなければそのまま返す＝呼ぶ側が形を確かめる）
+export const normalizePairId = (s) => String(s ?? '').normalize('NFKC').replace(/\D/g, '');
+export const formatPairId = (id) => String(id).replace(/(\d{4})(?=\d)/g, '$1-'); // 表示用: 1234-5678-9012
+export const pairChannelName = (id) => 'pair-' + id;
+export const pairNonce = () => b64(rand(16));
+export async function pairCommit({ ecdh, sig, name, nb }) {
+  return b64(await sha256(JSON.stringify(['pair-v2-commit', ecdh, sig, name, nb])));
 }
-export async function codeMac(code, msg) { return b64(await subtle.sign('HMAC', await macKey(code), enc(msg))); }
-export async function codeMacOk(code, msg, mac) {
-  try { return await subtle.verify('HMAC', await macKey(code), unb64(mac), enc(msg)); } catch { return false; }
-}
-export const helloBody = (ecdh, sig, name) => `B|${ecdh}|${sig}|${name}`;
-// 目視確認用の 6 桁（両方の画面に出る。中継だけが鍵をすり替えると食い違う）
-export async function sasOf(b, p) {
-  const h = await sha256([b.ecdh, b.sig, p.ecdh, p.sig].join('|'));
+// 目視確認用の6桁（両方の画面に出る）。b: ブラウザの鍵、p: パソコンの鍵
+export async function pairSas(b, p, nb, np) {
+  const h = await sha256(JSON.stringify(['pair-v2-sas', b.ecdh, b.sig, p.ecdh, p.sig, nb, np]));
   return String(new DataView(h.buffer).getUint32(0) % 1000000).padStart(6, '0');
 }
 
@@ -109,8 +114,8 @@ export function toChunks(wire, chunkChars = CHUNK_CHARS) {
   return out;
 }
 export class Assembler {
-  constructor({ ttlMs = 30000, maxMessages = 8, maxChunks = 64, maxChunkChars = 200000, maxTotalChars = 10000000 } = {}) {
-    Object.assign(this, { ttlMs, maxMessages, maxChunks, maxChunkChars, maxTotalChars }); this.m = new Map(); this.dropped = 0;
+  constructor({ ttlMs = 30000, maxMessages = 8, maxChunks = 64, maxChunkChars = 200000, maxTotalChars = 10000000, maxPendingChars = Infinity } = {}) {
+    Object.assign(this, { ttlMs, maxMessages, maxChunks, maxChunkChars, maxTotalChars, maxPendingChars }); this.m = new Map(); this.dropped = 0;
   }
   // 戻り値: {done,text} 組み立て完了 / {pending} まだ / {dup} 重複 / {drop:理由} 捨てた
   add(c, now = Date.now()) {
@@ -127,6 +132,15 @@ export class Assembler {
     if (e.n !== c.n) return { drop: 'n_mismatch' };
     if (e.parts[c.i] !== undefined) return { dup: true };
     if (e.size + c.d.length > this.maxTotalChars) { this.m.delete(c.m); this.dropped++; return { drop: 'too_large' }; }
+    // 組み立て中の全体の上限（署名を確かめる前の断片が使える量）。超えるときは古い組み立てから捨てる
+    if (this.maxPendingChars !== Infinity) {
+      let total = 0; for (const x of this.m.values()) total += x.size;
+      while (total + c.d.length > this.maxPendingChars) {
+        let victim = null; for (const k of this.m.keys()) if (k !== c.m) { victim = k; break; }
+        if (victim === null) { this.m.delete(c.m); this.dropped++; return { drop: 'too_large' }; }
+        total -= this.m.get(victim).size; this.m.delete(victim); this.dropped++;
+      }
+    }
     e.parts[c.i] = c.d; e.got++; e.size += c.d.length;
     if (e.got === e.n) { this.m.delete(c.m); return { done: true, text: e.parts.join('') }; }
     return { pending: true };

@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' wss://mimwlgxuthdhqojdkfaz.supabase.co; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <script src="config.js"></script>
 <script src="shim.js"></script>
@@ -16,8 +17,6 @@ ks.forEach(function(k){var n='myai.'+k.slice(4);if(localStorage.getItem(n)===nul
 var d=t==='dark'||(t==='auto'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);
 document.documentElement.dataset.theme=d?'dark':'light';document.documentElement.dataset.themePref=t})();
 </script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#eef3f9;--bg2:#f7fafd;--card:#ffffff;--line:#dde5ef;--text:#1d2738;--mute:#6b7789;--mute2:#9aa5b4;
@@ -2248,7 +2247,7 @@ document.getElementById('skMsg').addEventListener('click',e=>{
 (function(){try{const born=Date.now()+Math.random();const ch=new BroadcastChannel('myai-dashboard');
   ch.onmessage=e=>{if(e.data&&e.data.hello>born){ch.close();window.close()}};ch.postMessage({hello:born})}catch(_){}})();
 </script>
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="importmap">{"imports":{"three":"./vendor/three/three.module.min.js","three/addons/controls/OrbitControls.js":"./vendor/three/controls/OrbitControls.js","three/addons/renderers/CSS2DRenderer.js":"./vendor/three/renderers/CSS2DRenderer.js"}}</script>
 <script type="module" src="assets/office3d.js"></script>
 <script type="module" src="shell.mjs"></script>
 </body>

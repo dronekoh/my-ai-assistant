@@ -2,6 +2,7 @@
 // 画面が呼んでいた fetch('/api/…') を、暗号化・署名つきの中継 request('api', {method, path, body}) に差し替える1か所が api()。
 // 鍵: ペアリングで作り、store（ブラウザは IndexedDB・取り出せない形）に置く。ログインは無く、ペアリングが「入る資格」。
 import { browserPair, connectBrowser, forget } from './lib/client.mjs';
+import { normalizePairId, PAIR_ID_RE } from './lib/proto.mjs';
 
 // パソコン側の許可リスト（bridge/lib/policy.mjs）と同じ範囲。ここでも先に絞り、許されない操作は最初から送らない。
 const HISTORY_RE = /^\/api\/history\/(stats|search|sessions|session|memory)$/;
@@ -22,6 +23,8 @@ const MESSAGES = {
   too_large: '大きすぎて送れません',
   op_not_allowed: 'この操作は Web からは使えません',
   run_not_allowed: '「実行」の依頼は Web からは出せません',
+  command_not_allowed: '/ ! # で始まる依頼は Web からは出せません（先頭の記号を外してください）',
+  history_off: '履歴を Web から読む設定が「読めない」です。読むには、パソコンの Claude Code で /my-ai-assistant web-history on を打ってください',
   web_blocked: 'この操作は Web からは使えません',
   rate_limited: '短い間に送りすぎました。1分ほど待ってください',
   server_down: 'パソコン側の画面サーバーに届きません（Claude Code の会話が開いているか確かめてください）',
@@ -51,10 +54,11 @@ export function createRelay({ config, store, onStatus, hidden = () => false, pol
       bump(client ? client.status() : { connected: false, sinceBeatSec: null });
       return { paired };
     },
-    // 番号 → 鍵交換 → 確認用の6桁。戻り値 { sas, finish(signal), cancel() }。finish は「パソコンで一致が押される」まで待つ
+    // 12桁の番号 → 約束（commit）→ 鍵と乱数の交換 → 確認用の6桁。戻り値 { sas, finish(signal), cancel() }。finish は「パソコンで一致が押される」まで待つ
     async startPair(code, name) {
       if (!cfgOk) throw Object.assign(new Error('no_config'), { code: 'no_config' });
-      if (!/^\d{8}$/.test(code)) throw Object.assign(new Error('bad_code'), { code: 'bad_code' });
+      code = normalizePairId(code); // 全角・ハイフン・空白は除く
+      if (!PAIR_ID_RE.test(code)) throw Object.assign(new Error('bad_code'), { code: 'bad_code' });
       const pending = await browserPair({ url: config.url, key: config.key, code, name: (name || 'ブラウザ').slice(0, 40), store, timeoutMs: 20000 });
       let done = false;
       return {

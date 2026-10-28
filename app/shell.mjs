@@ -11,7 +11,7 @@ function browserName() {
   const ua = navigator.userAgent || '';
   const b = /Edg\//.test(ua) ? 'Edge' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'ブラウザ';
   const os = /iPhone|iPad/.test(ua) ? 'iPhone' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : '';
-  return os ? `${b}（${os}）` : b;
+  return os ? `${b} ${os}` : b; // 名前にカギかっこ類は使わない（パソコン側で除かれるため）
 }
 
 const store = idbStore();
@@ -76,18 +76,18 @@ function showPair(msg = '') {
   pairBox.innerHTML = `<div class="pair-card"><h2 id="pairTitle">パソコンとつなぐ（ペアリング）</h2>
 <p class="lead">この画面は、あなたのパソコンの Claude Code につないで使います。最初に1回だけ、このブラウザを登録します。</p>
 <ol><li>パソコンの Claude Code の会話で <code>/my-ai-assistant web-on</code> のあと <code>/my-ai-assistant web-pair</code> を打つ</li>
-<li>ペインに出た<b>8桁の番号</b>を、下に入れる</li></ol>
-<label for="pairCode">8桁の番号</label><input id="pairCode" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="00000000">
+<li>ペインに出た<b>12桁の番号</b>を、下に入れる（ハイフンは入れても入れなくても構いません）</li></ol>
+<label for="pairCode">12桁の番号</label><input id="pairCode" inputmode="numeric" autocomplete="off" maxlength="14" placeholder="0000-0000-0000">
 <label for="pairName">このブラウザの名前（パソコン側の一覧に出ます）</label><input id="pairName" maxlength="40" value="${esc(browserName())}">
 <div class="pair-err" id="pairErr" role="alert">${esc(msg)}</div>
 <div class="row"><button type="button" class="go" id="pairGo">つなぐ</button></div>
-<p class="pair-small">鍵はこのブラウザの中（IndexedDB・取り出せない形）に保存します。会話の中身は暗号化され、中継は読めません。番号は5分で失効します。</p></div>`;
+<p class="pair-small">鍵はこのブラウザの中（IndexedDB・取り出せない形）に保存します。会話の中身は暗号化され、中継は読めません。番号は5分で失効します。番号は通り道の名前で、秘密ではありません。守りは次の6桁の見比べです。</p></div>`;
   const go = $('pairGo'), code = $('pairCode');
-  code.addEventListener('input', () => { code.value = code.value.replace(/\D/g, '').slice(0, 8); });
+  code.addEventListener('input', () => { code.value = code.value.normalize('NFKC').replace(/\D/g, '').slice(0, 12).replace(/(\d{4})(?=\d)/g, '$1-'); });
   code.focus();
   const run = async () => {
-    const c = code.value.trim();
-    if (!/^\d{8}$/.test(c)) { $('pairErr').textContent = '8桁の番号を入れてください'; return; }
+    const c = code.value.normalize('NFKC').replace(/\D/g, '');
+    if (!/^\d{12}$/.test(c)) { $('pairErr').textContent = '12桁の番号を入れてください'; return; }
     go.disabled = true; $('pairErr').textContent = 'パソコンを探しています…';
     let p;
     try { p = await relay.startPair(c, $('pairName').value.trim()); }
