@@ -106,7 +106,7 @@ function showSas(p) {
   pairBox.innerHTML = `<div class="pair-card"><h2 id="pairTitle">6桁を見比べてください</h2>
 <div class="pair-sas" id="pairSas" aria-label="確認用の6桁">${esc(p.sas)}</div>
 <p class="pair-note"><b>パソコンの Claude Code の画面に同じ6桁が出ていたら、そちらで「一致」を押してください。</b><br>違う数字のときは、パソコン側で「違う」を押し、ここで「やめる」を押してください（他の人が割り込んでいるかもしれません）。</p>
-<div class="pair-note" id="pairErr" role="status" style="color:var(--mute)">パソコンの返事を待っています…（最長3分）</div>
+<div class="pair-note" id="pairErr" role="status" style="color:var(--mute)">パソコンの返事を待っています…（最長5分）</div>
 <div class="row"><button type="button" id="pairCancel">やめる</button></div></div>`;
   $('pairCancel').addEventListener('click', () => { p.cancel(); });
   p.finish().then((ok) => {

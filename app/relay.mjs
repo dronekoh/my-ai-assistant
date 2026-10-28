@@ -65,7 +65,7 @@ export function createRelay({ config, store, onStatus, hidden = () => false, pol
         sas: pending.sas,
         cancel() { done = true; },
         // 一致が押されるまで（最長 waitMs）待つ。パソコン側が登録して初めて鍵交換が通り、つながる。通らなければ鍵を消す
-        async finish(waitMs = 190000) {
+        async finish(waitMs = 310000) {
           await store.put('pairing', Date.now());
           const c = await pending.commit({ onStatus: bump, hsBackoff: { min: 1000, max: 3000 }, ...connectOpts });
           const t0 = Date.now();
