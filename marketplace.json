@@ -8,11 +8,11 @@
     {
       "name": "my-ai-assistant",
       "description": "My AI Assistant の画面を、利用者自身の Claude の上で動かす試作",
-      "version": "0.7.24",
+      "version": "0.7.25",
       "source": {
         "source": "archive",
-        "url": "https://dronekoh.github.io/my-ai-assistant/my-ai-assistant-0.7.24.zip",
-        "sha256": "c45b490f2ba4ce17c8fa703de6ec62b7a3644d9fb49a2bbe23cdf4ae3343b5a8"
+        "url": "https://dronekoh.github.io/my-ai-assistant/my-ai-assistant-0.7.25.zip",
+        "sha256": "a95599a38b520aad97009e9a5734189de5b68cf20975f3183aa5d91b6df4a49d"
       }
     }
   ]
